@@ -137,6 +137,23 @@
     font-weight: 400;
   }
 
+  #source-link {
+    font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  #source-link:hover {
+    color: var(--text-secondary);
+    border-color: var(--text-muted);
+  }
+
   #search-container {
     position: relative;
     width: 280px;
@@ -521,6 +538,7 @@
 
 <div id="header">
   <h1>Claude Code <span>Knowledge Graph</span></h1>
+  <a id="source-link" href="https://github.com/shanraisshan/claude-code-best-practice" target="_blank" rel="noopener">Based on shanraisshan/claude-code-best-practice</a>
   <div id="search-container">
     <span id="search-icon">&#x2315;</span>
     <input id="search" type="text" placeholder="Search concepts, tips, workflows..." />
