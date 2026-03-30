@@ -5,7 +5,7 @@ An interactive horizontal tree visualization of Claude Code concepts, best pract
 **[Live Site](https://octokerbs.github.io/claude-code-knowledge/)**
 
 ## Screenshot
-
+[screenshot](./screenshot.png)
 <!-- Add your screenshot here -->
 
 ## About
