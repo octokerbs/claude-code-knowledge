@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code Knowledge Graph</title>
+<style>
+  /* Charter font - use local if available, fallback to Georgia */
+  @font-face {
+    font-family: 'Charter';
+    src: local('Charter'), local('Charter-Regular'), local('Bitstream Charter');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Charter';
+    src: local('Charter Bold'), local('Charter-Bold'), local('Bitstream Charter Bold');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #FAFAFA;
+    --bg-secondary: #FFFFFF;
+    --text: #1A1A1A;
+    --text-secondary: #666666;
+    --text-muted: #999999;
+    --border: #E5E5E5;
+    --node-stroke: #D0D0D0;
+    --link-color: #D0D0D0;
+    --hover-bg: #F0F0F0;
+    --panel-bg: #FFFFFF;
+    --panel-shadow: rgba(0,0,0,0.08);
+    --search-bg: #FFFFFF;
+    --badge-bg: #F0F0F0;
+    --scrollbar-thumb: #CCC;
+    --scrollbar-track: transparent;
+
+    --color-concepts: #9B7ED8;
+    --color-concepts-bg: #F0EBF8;
+    --color-tips: #4CAF7D;
+    --color-tips-bg: #E8F5E9;
+    --color-workflows: #5B9BD5;
+    --color-workflows-bg: #E3F0FB;
+    --color-reports: #E6913E;
+    --color-reports-bg: #FFF3E0;
+    --color-hot: #E05A8D;
+    --color-hot-bg: #FCE4EC;
+    --color-orchestration: #7E8FA6;
+    --color-orchestration-bg: #ECEFF3;
+    --color-root: #333333;
+    --color-root-bg: #F5F5F5;
+    --color-default: #888888;
+    --color-default-bg: #F5F5F5;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141420;
+      --bg-secondary: #1C1C2E;
+      --text: #E8E8E8;
+      --text-secondary: #9A9AB0;
+      --text-muted: #6A6A80;
+      --border: #2A2A40;
+      --node-stroke: #3A3A5C;
+      --link-color: #2E2E4A;
+      --hover-bg: #22223A;
+      --panel-bg: #1C1C2E;
+      --panel-shadow: rgba(0,0,0,0.4);
+      --search-bg: #1C1C2E;
+      --badge-bg: #2A2A40;
+      --scrollbar-thumb: #3A3A5C;
+      --scrollbar-track: transparent;
+
+      --color-concepts: #9B7ED8;
+      --color-concepts-bg: #2A2040;
+      --color-tips: #34D399;
+      --color-tips-bg: #1A2E28;
+      --color-workflows: #60A5FA;
+      --color-workflows-bg: #1A2440;
+      --color-reports: #FB923C;
+      --color-reports-bg: #2E2218;
+      --color-hot: #F472B6;
+      --color-hot-bg: #2E1A28;
+      --color-orchestration: #94A3B8;
+      --color-orchestration-bg: #1E2430;
+      --color-root: #E8E8E8;
+      --color-root-bg: #2A2A40;
+      --color-default: #9A9AB0;
+      --color-default-bg: #22223A;
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Charter', 'Georgia', 'Times New Roman', serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  h1, h2, h3, h4, h5, h6, .title-font {
+    font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  /* Header */
+  #header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+  }
+
+  #header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  #header h1 span {
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  #search-container {
+    position: relative;
+    width: 280px;
+  }
+
+  #search {
+    width: 100%;
+    padding: 8px 12px 8px 34px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--search-bg);
+    color: var(--text);
+    font-family: 'Charter', 'Georgia', serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  #search:focus { border-color: var(--color-concepts); }
+
+  #search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 14px;
+    pointer-events: none;
+  }
+
+  #controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { background: var(--hover-bg); color: var(--text); }
+
+  #last-updated {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-right: 8px;
+  }
+
+  /* Legend */
+  #legend {
+    position: fixed;
+    bottom: 20px;
+    left: 24px;
+    display: flex;
+    gap: 14px;
+    z-index: 50;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+    color: var(--text-secondary);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* SVG Graph */
+  #graph-container {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .node { cursor: pointer; }
+
+  .node circle {
+    stroke-width: 2;
+    transition: all 0.2s;
+  }
+
+  .node:hover circle {
+    stroke-width: 3;
+    filter: drop-shadow(0 0 4px rgba(0,0,0,0.15));
+  }
+
+  .node text {
+    font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+    font-size: 13px;
+    fill: var(--text);
+    pointer-events: none;
+  }
+
+  .node .node-count {
+    font-size: 10px;
+    fill: var(--text-muted);
+  }
+
+  .link {
+    fill: none;
+    stroke: var(--link-color);
+    stroke-width: 1.5;
+  }
+
+  .node.search-match circle {
+    stroke-width: 3;
+    filter: drop-shadow(0 0 8px rgba(155, 126, 216, 0.5));
+  }
+
+  .node.search-dim { opacity: 0.15; }
+  .link.search-dim { opacity: 0.08; }
+
+  /* Breadcrumb */
+  #breadcrumb {
+    position: fixed;
+    top: 64px;
+    left: 24px;
+    font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+    font-size: 13px;
+    color: var(--text-muted);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  #breadcrumb span { cursor: pointer; }
+  #breadcrumb span:hover { color: var(--text); }
+  #breadcrumb .sep { color: var(--text-muted); cursor: default; }
+  #breadcrumb .current { color: var(--text-secondary); cursor: default; }
+
+  /* Side Panel */
+  #panel {
+    position: fixed;
+    top: 56px;
+    right: 0;
+    width: 420px;
+    height: calc(100vh - 56px);
+    background: var(--panel-bg);
+    border-left: 1px solid var(--border);
+    box-shadow: -4px 0 20px var(--panel-shadow);
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 90;
+    overflow-y: auto;
+    padding: 28px;
+  }
+
+  #panel.open { transform: translateX(0); }
+
+  #panel::-webkit-scrollbar { width: 6px; }
+  #panel::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  #panel::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+
+  #panel-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: var(--hover-bg);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 16px;
+    transition: all 0.15s;
+  }
+
+  #panel-close:hover { background: var(--border); color: var(--text); }
+
+  #panel .panel-category {
+    display: inline-block;
+    font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 10px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+  }
+
+  #panel .panel-title {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+
+  #panel .panel-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  #panel .panel-section {
+    margin-bottom: 20px;
+  }
+
+  #panel .panel-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  #panel .panel-content {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  #panel .panel-content p {
+    margin-bottom: 12px;
+  }
+
+  #panel .panel-content ul {
+    padding-left: 20px;
+    margin-bottom: 12px;
+  }
+
+  #panel .panel-content li {
+    margin-bottom: 6px;
+    line-height: 1.6;
+  }
+
+  #panel .panel-content code {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    background: var(--badge-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  #panel .panel-content pre {
+    background: var(--badge-bg);
+    padding: 14px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin-bottom: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  #panel .panel-content pre code {
+    background: none;
+    padding: 0;
+  }
+
+  #panel .panel-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-concepts);
+    text-decoration: none;
+    font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+    font-size: 13px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    transition: all 0.15s;
+  }
+
+  #panel .panel-link:hover {
+    background: var(--hover-bg);
+    border-color: var(--color-concepts);
+  }
+
+  #panel .panel-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  #panel .panel-tag {
+    font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--badge-bg);
+    color: var(--text-secondary);
+  }
+
+  /* Keyboard hint */
+  #keyboard-hint {
+    position: fixed;
+    bottom: 20px;
+    right: 24px;
+    font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+    font-size: 11px;
+    color: var(--text-muted);
+    z-index: 50;
+    display: flex;
+    gap: 12px;
+  }
+
+  .kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 11px;
+    background: var(--bg-secondary);
+  }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    max-width: 280px;
+    box-shadow: 0 4px 12px var(--panel-shadow);
+    z-index: 200;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  #tooltip.visible { opacity: 1; }
+
+  #tooltip .tooltip-title {
+    font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  #tooltip .tooltip-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  #tooltip .tooltip-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>Claude Code <span>Knowledge Graph</span></h1>
+  <div id="search-container">
+    <span id="search-icon">&#x2315;</span>
+    <input id="search" type="text" placeholder="Search concepts, tips, workflows..." />
+  </div>
+  <div id="controls">
+    <span id="last-updated"></span>
+    <button class="btn" id="btn-expand-all">Expand All</button>
+    <button class="btn" id="btn-collapse-all">Collapse</button>
+    <button class="btn" id="btn-fit">Fit View</button>
+  </div>
+</div>
+
+<div id="breadcrumb"></div>
+
+<div id="graph-container">
+  <svg id="svg"></svg>
+</div>
+
+<div id="panel">
+  <button id="panel-close">&times;</button>
+  <div id="panel-body"></div>
+</div>
+
+<div id="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--color-concepts)"></div>Concepts</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--color-tips)"></div>Tips</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--color-workflows)"></div>Workflows</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--color-reports)"></div>Reports</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--color-hot)"></div>Hot</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--color-orchestration)"></div>Orchestration</div>
+</div>
+
+<div id="keyboard-hint">
+  <span><span class="kbd">Esc</span> close panel</span>
+  <span><span class="kbd">/</span> search</span>
+  <span><span class="kbd">F</span> fit view</span>
+</div>
+
+<div id="tooltip">
+  <div class="tooltip-title"></div>
+  <div class="tooltip-desc"></div>
+  <div class="tooltip-hint"></div>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+// ─── KNOWLEDGE DATA ───────────────────────────────────────────────────────────
+const KNOWLEDGE_DATA = {
+  name: "Claude Code",
+  category: "root",
+  description: "Complete knowledge graph of Claude Code concepts, best practices, tips, and workflows.",
+  children: [
+    {
+      name: "Core Concepts",
+      category: "concepts",
+      description: "The fundamental building blocks of Claude Code — understanding these is essential for effective usage.",
+      children: [
+        {
+          name: "Subagents",
+          category: "concepts",
+          description: "Specialized child agents launched to handle complex, multi-step tasks autonomously.",
+          content: "Subagents are spawned by the main agent to handle parallel, independent work. Each gets its own context window and can use tools.",
+          bestPractices: [
+            "Use subagents for tasks that are independent and can run in parallel",
+            "Provide complete task descriptions — subagents start fresh each time",
+            "Use background agents when you don't need results immediately",
+            "Match subagent type to the task: Explore for codebase search, Plan for architecture"
+          ],
+          examples: ["Agent(prompt='Search for all API endpoints', subagent_type='Explore')", "Launch multiple agents concurrently for independent research tasks"],
+          tags: ["parallel", "context-isolation", "autonomous"],
+          links: [{ label: "Best Practice Guide", url: "https://github.com/shanraisshan/claude-code-best-practice/blob/main/best-practice/subagent.md" }]
+        },
+        {
+          name: "Commands",
+          category: "concepts",
+          description: "Slash commands that provide reusable prompt templates for common tasks.",
+          content: "Commands are markdown files in .claude/commands/ that define reusable prompts. Users invoke them with /command-name. They can accept arguments via $ARGUMENTS placeholder.",
+          bestPractices: [
+            "Keep commands focused on a single well-defined task",
+            "Use $ARGUMENTS for dynamic input",
+            "Store project-level commands in .claude/commands/ and user-level in ~/.claude/commands/",
+            "Combine with skills and agents for orchestration workflows"
+          ],
+          examples: ["/review — run a code review", "/test — execute test suite and report results", "/weather-orchestrator — example orchestration command"],
+          tags: ["slash-commands", "templates", "reusable"],
+          links: [{ label: "Best Practice Guide", url: "https://github.com/shanraisshan/claude-code-best-practice/blob/main/best-practice/commands.md" }]
+        },
+        {
+          name: "Skills",
+          category: "concepts",
+          description: "Pre-built capabilities that Claude can invoke to perform specialized tasks.",
+          content: "Skills are packaged capabilities available via the Skill tool. They can be user-invocable (triggered by /skill-name) or system-level. Skills provide domain-specific functionality.",
+          bestPractices: [
+            "Use existing skills before building custom solutions",
+            "Skills like /simplify, /commit, /review-pr are production-ready",
+            "Create custom skills for repeated project-specific workflows",
+            "Skills can be combined with commands for powerful orchestration"
+          ],
+          examples: ["/commit — create well-formatted git commits", "/simplify — review and simplify changed code", "/review-pr — comprehensive pull request review"],
+          tags: ["built-in", "extensible", "domain-specific"],
+          links: [{ label: "Best Practice Guide", url: "https://github.com/shanraisshan/claude-code-best-practice/blob/main/best-practice/skills.md" }]
+        },
+        {
+          name: "Hooks",
+          category: "concepts",
+          description: "Shell commands that execute automatically in response to Claude Code events.",
+          content: "Hooks are configured in settings.json and run before/after specific events like tool calls, notifications, or mode switches. They enable automated behaviors.",
+          bestPractices: [
+            "Use hooks for automated linting, formatting, or validation",
+            "Configure pre-commit hooks to enforce code quality",
+            "Hooks run in the user's shell — keep them fast to avoid blocking",
+            "Test hooks thoroughly as they affect every interaction"
+          ],
+          examples: ["Pre-tool hook: lint files before edit", "Post-commit hook: run tests automatically", "Notification hook: alert on long-running tasks"],
+          tags: ["automation", "events", "shell"],
+          links: [{ label: "Best Practice Guide", url: "https://github.com/shanraisshan/claude-code-best-practice/blob/main/best-practice/hooks.md" }]
+        },
+        {
+          name: "MCP Servers",
+          category: "concepts",
+          description: "Model Context Protocol servers that extend Claude's capabilities with external tools and data sources.",
+          content: "MCP servers provide Claude with access to external services, databases, APIs, and tools. They run as separate processes and communicate via the MCP protocol.",
+          bestPractices: [
+            "Use MCP for integrating external services (databases, APIs, browsers)",
+            "Configure servers in .mcp.json at project root",
+            "Popular MCP servers: browser automation, Slack, Linear, Sentry",
+            "MCP servers run locally — consider security implications"
+          ],
+          tags: ["integration", "external-tools", "protocol"],
+          links: [{ label: "Best Practice Guide", url: "https://github.com/shanraisshan/claude-code-best-practice/blob/main/best-practice/mcp.md" }]
+        },
+        {
+          name: "CLAUDE.md",
+          category: "concepts",
+          description: "Project instruction files that provide persistent context and guidelines to Claude Code.",
+          content: "CLAUDE.md files are automatically loaded into context. They contain project conventions, architecture notes, and instructions. Can exist at project root, subdirectories, or ~/.claude/CLAUDE.md for global settings.",
+          bestPractices: [
+            "Keep CLAUDE.md concise — every token counts against context",
+            "Use project-level for repo conventions, global for personal preferences",
+            "Include build/test commands, code style rules, and architectural decisions",
+            "Review and trim regularly to avoid stale instructions"
+          ],
+          tags: ["context", "instructions", "persistent"],
+          links: [{ label: "Tips: CLAUDE.md", url: "https://github.com/shanraisshan/claude-code-best-practice#claudemd" }]
+        },
+        {
+          name: "Memory",
+          category: "concepts",
+          description: "Persistent, file-based memory system for retaining context across conversations.",
+          content: "Claude Code can store and retrieve memories in ~/.claude/projects/. Memories persist across sessions and include user preferences, project context, feedback, and references.",
+          bestPractices: [
+            "Let Claude save feedback memories when you correct its approach",
+            "Store project context that isn't obvious from the code",
+            "Don't store things derivable from code or git history",
+            "Review memories periodically — they can become stale"
+          ],
+          tags: ["persistence", "cross-session", "context"],
+          links: [{ label: "Best Practice Guide", url: "https://github.com/shanraisshan/claude-code-best-practice/blob/main/best-practice/memory.md" }]
+        },
+        {
+          name: "Settings",
+          category: "concepts",
+          description: "Configuration files controlling Claude Code behavior, permissions, and tool access.",
+          content: "Settings are configured via settings.json at project (~/.claude/settings.json) or user level. Control allowed/denied tools, MCP servers, hooks, and environment variables.",
+          bestPractices: [
+            "Use project-level settings for team conventions",
+            "Configure permission allowlists to reduce approval prompts",
+            "Separate global preferences from project-specific settings",
+            "Use environment variables for sensitive configuration"
+          ],
+          tags: ["configuration", "permissions", "environment"],
+          links: [{ label: "Settings Report", url: "https://github.com/shanraisshan/claude-code-best-practice/blob/main/reports/settings.md" }]
+        },
+        {
+          name: "Checkpointing",
+          category: "concepts",
+          description: "Git-based snapshots that allow you to revert Claude's changes safely.",
+          content: "Claude Code creates automatic checkpoints (git stash-like) before major operations. You can restore to any checkpoint if changes go wrong.",
+          bestPractices: [
+            "Use checkpoints as safety nets for large refactors",
+            "Review changes at each checkpoint before proceeding",
+            "Combine with git branches for experimental work"
+          ],
+          tags: ["safety", "git", "reversibility"]
+        },
+        {
+          name: "CLI Flags",
+          category: "concepts",
+          description: "Startup flags and options for customizing Claude Code behavior at launch.",
+          content: "Claude Code accepts various CLI flags to control behavior: model selection, output format, input piping, and more.",
+          bestPractices: [
+            "Use --model to select specific Claude models",
+            "Pipe input with echo 'prompt' | claude for scripting",
+            "Use --output-format json for programmatic integration",
+            "Combine flags for CI/CD automation"
+          ],
+          tags: ["cli", "automation", "flags"],
+          links: [{ label: "CLI Flags Guide", url: "https://github.com/shanraisshan/claude-code-best-practice/blob/main/best-practice/cli-flags.md" }]
+        },
+        {
+          name: "Plugins",
+          category: "concepts",
+          description: "Experimental extension system for adding new capabilities to Claude Code.",
+          content: "Plugins are an emerging feature that allows extending Claude Code's functionality with custom tools and integrations.",
+          tags: ["experimental", "extensions", "beta"]
+        },
+        {
+          name: "Status Line",
+          category: "concepts",
+          description: "Customizable status indicator showing Claude Code's current state and model info.",
+          content: "The status line can be configured to show model, token usage, and custom information during sessions.",
+          tags: ["ui", "monitoring", "display"]
+        },
+        {
+          name: "AI Terms",
+          category: "concepts",
+          description: "Key AI terminology relevant to understanding and using Claude Code effectively.",
+          content: "Understanding terms like context window, tokens, temperature, tool use, and agentic coding helps you use Claude Code more effectively.",
+          tags: ["glossary", "learning", "fundamentals"]
+        }
+      ]
+    },
+    {
+      name: "Tips & Tricks",
+      category: "tips",
+      description: "86 actionable tips across 13 categories, curated from the Claude team and community.",
+      children: [
+        {
+          name: "Prompting",
+          category: "tips",
+          description: "How to write effective prompts that get the best results from Claude Code.",
+          children: [
+            { name: "Be specific and direct", category: "tips", content: "Tell Claude exactly what you want. Instead of 'fix this', say 'fix the null pointer exception in UserService.getById by adding a null check'. Specificity reduces iterations.", tags: ["fundamentals"], attribution: "Boris Cherny" },
+            { name: "Show don't tell", category: "tips", content: "Provide examples of the output format, code style, or behavior you expect. Claude follows demonstrated patterns better than abstract descriptions.", tags: ["examples"], attribution: "Community" },
+            { name: "Use ultrathink for complex tasks", category: "tips", content: "For complex architectural decisions or multi-file changes, include 'ultrathink' in your prompt to engage extended thinking mode for deeper reasoning.", tags: ["thinking", "complex"], attribution: "Community" }
+          ]
+        },
+        {
+          name: "Planning & Specs",
+          category: "tips",
+          description: "Strategies for planning implementation before writing code.",
+          children: [
+            { name: "Write specs before code", category: "tips", content: "For any non-trivial feature, ask Claude to write a spec first. Review and iterate on the spec before implementation. This catches design issues early.", tags: ["specs", "design"], attribution: "Boris Cherny" },
+            { name: "Use plan mode for architecture", category: "tips", content: "Enter plan mode (/plan) for architectural decisions. Claude will research, propose, and refine a plan before any code changes.", tags: ["plan-mode", "architecture"], attribution: "Team" },
+            { name: "Break large tasks into phases", category: "tips", content: "Instead of 'build the auth system', break it into phases: 'Phase 1: design the auth schema', 'Phase 2: implement login endpoint', etc.", tags: ["decomposition", "phased"], attribution: "Community" },
+            { name: "Verify plan before execution", category: "tips", content: "Always review Claude's plan before letting it execute. Plans are where you catch misunderstandings cheaply.", tags: ["review", "safety"], attribution: "Team" },
+            { name: "Use TodoWrite for tracking", category: "tips", content: "For multi-step tasks, use the task tracking system to break down work and maintain progress visibility.", tags: ["tracking", "progress"], attribution: "Community" },
+            { name: "Iterate on specs with stakeholders", category: "tips", content: "Share Claude-generated specs with your team. Use feedback to refine before implementation begins.", tags: ["collaboration", "review"], attribution: "Community" }
+          ]
+        },
+        {
+          name: "CLAUDE.md Tips",
+          category: "tips",
+          description: "Best practices for writing and maintaining CLAUDE.md files.",
+          children: [
+            { name: "Keep it concise", category: "tips", content: "Every line in CLAUDE.md consumes context tokens. Be ruthlessly concise — include only what Claude needs to know that it can't infer from the code.", tags: ["tokens", "efficiency"], attribution: "Boris Cherny" },
+            { name: "Include build & test commands", category: "tips", content: "Always include how to build, test, and lint. 'npm test', 'cargo build', etc. Claude uses these to verify its work.", tags: ["commands", "verification"], attribution: "Team" },
+            { name: "Document non-obvious conventions", category: "tips", content: "If your team uses unusual patterns or conventions that differ from common practice, document them. Don't document standard practices.", tags: ["conventions"], attribution: "Community" },
+            { name: "Use nested CLAUDE.md files", category: "tips", content: "Put directory-specific context in subdirectory CLAUDE.md files. Claude loads them when working in that directory.", tags: ["organization", "scoping"], attribution: "Team" },
+            { name: "Review and prune regularly", category: "tips", content: "CLAUDE.md files become stale. Review quarterly and remove outdated instructions.", tags: ["maintenance"], attribution: "Community" },
+            { name: "Separate global from project", category: "tips", content: "Put personal preferences in ~/.claude/CLAUDE.md, project conventions in the repo's CLAUDE.md.", tags: ["organization"], attribution: "Boris Cherny" },
+            { name: "Test your CLAUDE.md", category: "tips", content: "Start a fresh conversation and check if Claude follows your CLAUDE.md instructions correctly. Iterate until it does.", tags: ["verification"], attribution: "Community" }
+          ]
+        },
+        {
+          name: "Agents",
+          category: "tips",
+          description: "Tips for effective use of subagents and agent orchestration.",
+          children: [
+            { name: "Parallelize independent work", category: "tips", content: "When you have multiple independent tasks, launch them as parallel subagents. Each gets its own context and they run concurrently.", tags: ["parallel", "performance"], attribution: "Team" },
+            { name: "Match agent type to task", category: "tips", content: "Use Explore agents for codebase search, Plan agents for architecture, general-purpose for complex multi-step work.", tags: ["agent-types"], attribution: "Community" },
+            { name: "Provide complete context", category: "tips", content: "Subagents start fresh — include all necessary context in the prompt. Don't assume they know what you discussed earlier.", tags: ["context", "prompting"], attribution: "Boris Cherny" },
+            { name: "Use background for non-blocking", category: "tips", content: "Set run_in_background: true when you don't need the result immediately. You'll be notified on completion.", tags: ["async", "efficiency"], attribution: "Team" }
+          ]
+        },
+        {
+          name: "Commands Tips",
+          category: "tips",
+          description: "Creating and using effective slash commands.",
+          children: [
+            { name: "One command, one purpose", category: "tips", content: "Each command should do one thing well. Combine commands in orchestration workflows for complex tasks.", tags: ["design", "focus"], attribution: "Community" },
+            { name: "Use $ARGUMENTS wisely", category: "tips", content: "The $ARGUMENTS placeholder captures everything after the command name. Design commands to accept flexible input.", tags: ["arguments", "flexibility"], attribution: "Team" },
+            { name: "Share team commands", category: "tips", content: "Put shared commands in .claude/commands/ in your repo. Team members get them automatically.", tags: ["collaboration", "sharing"], attribution: "Boris Cherny" }
+          ]
+        },
+        {
+          name: "Skills Tips",
+          category: "tips",
+          description: "Making the most of built-in and custom skills.",
+          children: [
+            { name: "Use /simplify after changes", category: "tips", content: "After writing code, run /simplify to review for reuse, quality, and efficiency. It catches issues you might miss.", tags: ["quality", "review"], attribution: "Boris Cherny" },
+            { name: "Chain skills in workflows", category: "tips", content: "Skills can be combined: write code → /simplify → /commit. Build these chains into your development rhythm.", tags: ["chaining", "workflow"], attribution: "Team" },
+            { name: "Create project-specific skills", category: "tips", content: "Build skills for repeated project-specific tasks. Deploy scripts, data migrations, report generation, etc.", tags: ["custom", "automation"], attribution: "Community" },
+            { name: "Explore available skills", category: "tips", content: "Check what skills are available before building custom solutions. Many common tasks have pre-built skills.", tags: ["discovery"], attribution: "Team" },
+            { name: "Skills vs commands", category: "tips", content: "Skills are capability packages with tool access. Commands are prompt templates. Use skills for tool-heavy tasks, commands for prompt-heavy ones.", tags: ["comparison"], attribution: "Boris Cherny" },
+            { name: "Use /commit for clean history", category: "tips", content: "The /commit skill analyzes changes, follows repo conventions, and creates well-formatted commit messages automatically.", tags: ["git", "automation"], attribution: "Team" },
+            { name: "Batch with /simplify", category: "tips", content: "Run /simplify on batches of related changes rather than individual files for better cross-cutting insights.", tags: ["batch", "efficiency"], attribution: "Community" },
+            { name: "Skill composition", category: "tips", content: "Combine skills to build powerful workflows. A skill can invoke other skills, creating layered automation.", tags: ["composition", "advanced"], attribution: "Community" },
+            { name: "Monitor skill execution", category: "tips", content: "Watch what skills do — they use tools under the hood. Understanding their behavior helps you configure permissions.", tags: ["observability"], attribution: "Community" }
+          ]
+        },
+        {
+          name: "Hooks Tips",
+          category: "tips",
+          description: "Automating workflows with event-driven hooks.",
+          children: [
+            { name: "Lint on file edit", category: "tips", content: "Configure a hook to run your linter after Claude edits files. Catches style issues immediately without manual intervention.", tags: ["lint", "automation"], attribution: "Community" },
+            { name: "Auto-format on save", category: "tips", content: "Hook into file write events to run Prettier/Black/rustfmt automatically. Ensures consistent formatting.", tags: ["formatting"], attribution: "Team" },
+            { name: "Guard destructive operations", category: "tips", content: "Use pre-tool hooks to add confirmation or validation before destructive operations like file deletion.", tags: ["safety", "validation"], attribution: "Boris Cherny" },
+            { name: "Test hooks in isolation", category: "tips", content: "Test hook scripts independently before configuring them. A broken hook blocks all Claude interactions.", tags: ["testing", "reliability"], attribution: "Community" },
+            { name: "Keep hooks fast", category: "tips", content: "Hooks run synchronously and block Claude. Keep execution under 1-2 seconds. Move heavy work to background processes.", tags: ["performance"], attribution: "Team" }
+          ]
+        },
+        {
+          name: "Workflows",
+          category: "tips",
+          description: "Effective development workflow patterns with Claude Code.",
+          children: [
+            { name: "Spec → Plan → Implement → Review", category: "tips", content: "The gold standard workflow: write a spec, create a plan, implement in phases, review with /simplify. Each step catches different issues.", tags: ["process", "quality"], attribution: "Boris Cherny" },
+            { name: "Use git branches as sandboxes", category: "tips", content: "Create a branch for Claude to work in. Review changes, squash if good, discard if not. Low-risk experimentation.", tags: ["git", "safety"], attribution: "Community" },
+            { name: "Iterate in small loops", category: "tips", content: "Don't ask for everything at once. Build incrementally: implement → test → fix → next piece. Smaller loops have fewer bugs.", tags: ["incremental", "iteration"], attribution: "Team" },
+            { name: "Review before committing", category: "tips", content: "Always review Claude's changes before committing. Use git diff, read the code, run tests. Trust but verify.", tags: ["review", "safety"], attribution: "Boris Cherny" },
+            { name: "Checkpoint at milestones", category: "tips", content: "After completing a significant piece of work, commit it before moving on. This creates restore points if later changes break things.", tags: ["checkpoints", "safety"], attribution: "Community" },
+            { name: "Separate research from action", category: "tips", content: "First ask Claude to research/understand the codebase, then in a follow-up request ask it to make changes. Two-phase approach reduces mistakes.", tags: ["phased", "understanding"], attribution: "Team" },
+            { name: "Use worktrees for isolation", category: "tips", content: "Git worktrees give agents isolated copies of the repo. Use for parallel feature work or risky experiments without affecting your working copy.", tags: ["worktrees", "isolation"], attribution: "Community" }
+          ]
+        },
+        {
+          name: "Workflows Advanced",
+          category: "tips",
+          description: "Advanced workflow patterns for power users.",
+          children: [
+            { name: "Orchestration: Cmd → Agent → Skill", category: "tips", content: "The orchestration pattern: Commands trigger agents, agents use skills. This layered approach handles complex multi-step automations.", tags: ["orchestration", "architecture"], attribution: "shanraisshan" },
+            { name: "Multi-agent pipelines", category: "tips", content: "Chain agents in sequence: research agent → planning agent → implementation agent → review agent. Each specializes in its phase.", tags: ["pipeline", "multi-agent"], attribution: "Community" },
+            { name: "Agent teams", category: "tips", content: "Configure teams of specialized agents that collaborate. One agent researches, another writes code, a third reviews. Parallel specialization.", tags: ["teams", "collaboration"], attribution: "Community" },
+            { name: "Loop patterns", category: "tips", content: "Use /loop for recurring tasks: poll deploy status, check test results, monitor CI. Specify interval and action.", tags: ["loop", "monitoring"], attribution: "Community" },
+            { name: "Scheduled automation", category: "tips", content: "Use remote triggers and cron schedules for automated tasks: nightly code quality reviews, dependency updates, report generation.", tags: ["scheduling", "automation"], attribution: "Community" },
+            { name: "Cross-model workflows", category: "tips", content: "Use different models for different tasks: Opus for complex reasoning, Sonnet for fast iteration, Haiku for quick checks.", tags: ["models", "optimization"], attribution: "Community" }
+          ]
+        },
+        {
+          name: "Git & PR",
+          category: "tips",
+          description: "Git workflow and pull request best practices with Claude.",
+          children: [
+            { name: "Use /commit for consistency", category: "tips", content: "The /commit skill reads repo history to match your commit message style. Creates consistent, well-formatted commits.", tags: ["commits", "consistency"], attribution: "Team" },
+            { name: "PR descriptions matter", category: "tips", content: "Use /review-pr to generate comprehensive PR descriptions. Include summary, test plan, and change rationale.", tags: ["pr", "documentation"], attribution: "Boris Cherny" },
+            { name: "Review your own PRs", category: "tips", content: "Before submitting, ask Claude to review your PR as if it were a code reviewer. Fresh perspective catches issues.", tags: ["review", "quality"], attribution: "Community" },
+            { name: "Small, focused PRs", category: "tips", content: "Keep PRs focused on one change. Claude helps you split large changes into logical, reviewable chunks.", tags: ["size", "reviewability"], attribution: "Team" },
+            { name: "Resolve conflicts with context", category: "tips", content: "When merge conflicts arise, give Claude context about both sides. It resolves conflicts understanding intent, not just syntax.", tags: ["conflicts", "resolution"], attribution: "Community" }
+          ]
+        },
+        {
+          name: "Debugging",
+          category: "tips",
+          description: "Effective debugging strategies with Claude Code.",
+          children: [
+            { name: "Share the error first", category: "tips", content: "Always paste the full error message or stack trace. Claude diagnoses from errors much better than from descriptions of errors.", tags: ["errors", "diagnosis"], attribution: "Boris Cherny" },
+            { name: "Reproduce before fixing", category: "tips", content: "Ask Claude to understand the reproduction steps before attempting a fix. Fixes without understanding often create new bugs.", tags: ["reproduction", "understanding"], attribution: "Team" },
+            { name: "Read code before changing", category: "tips", content: "Claude should read the relevant code before suggesting changes. If it proposes changes to code it hasn't read, ask it to read first.", tags: ["context", "safety"], attribution: "Boris Cherny" },
+            { name: "Bisect with git", category: "tips", content: "For regressions, use git bisect with Claude to find the breaking commit. Claude can automate the bisect process.", tags: ["git-bisect", "regression"], attribution: "Community" },
+            { name: "Add tests for bugs", category: "tips", content: "Write a failing test that reproduces the bug first, then fix the bug. The test prevents regression.", tags: ["tdd", "regression"], attribution: "Team" },
+            { name: "Check assumptions", category: "tips", content: "When debugging, verify your assumptions. Ask Claude to log/inspect intermediate values rather than guessing.", tags: ["verification", "scientific"], attribution: "Community" },
+            { name: "Isolate the problem", category: "tips", content: "Narrow the scope: which file, which function, which line. Claude debugs faster with focused context than with 'it doesn't work'.", tags: ["isolation", "focus"], attribution: "Community" }
+          ]
+        },
+        {
+          name: "Utilities",
+          category: "tips",
+          description: "Useful utility patterns and tools.",
+          children: [
+            { name: "Pipe for scripting", category: "tips", content: "echo 'your prompt' | claude — use pipe input for scripting and automation. Combine with shell scripts for powerful workflows.", tags: ["pipe", "scripting"], attribution: "Team" },
+            { name: "JSON output for parsing", category: "tips", content: "Use --output-format json for programmatic consumption. Great for CI/CD integration and automated pipelines.", tags: ["json", "automation"], attribution: "Community" },
+            { name: "MCP for browser testing", category: "tips", content: "Set up a browser automation MCP server for end-to-end testing. Claude can interact with your web app in a real browser.", tags: ["browser", "testing"], attribution: "Community" },
+            { name: "Voice dictation", category: "tips", content: "Use voice input for natural, conversational interactions with Claude Code. Great for brainstorming and design discussions.", tags: ["voice", "input"], attribution: "Community" },
+            { name: "Chrome extension", category: "tips", content: "Use the Claude Code Chrome extension for quick interactions without switching to the terminal.", tags: ["browser", "convenience"], attribution: "Community" }
+          ]
+        },
+        {
+          name: "Daily Practices",
+          category: "tips",
+          description: "Habits for effective daily usage of Claude Code.",
+          children: [
+            { name: "Start sessions with context", category: "tips", content: "Begin each session by briefly stating what you're working on and the goal. Helps Claude align with your intent immediately.", tags: ["context", "efficiency"], attribution: "Boris Cherny" },
+            { name: "Clean up stale context", category: "tips", content: "Long conversations accumulate noise. Start fresh conversations for new tasks rather than continuing indefinitely.", tags: ["context-management"], attribution: "Team" },
+            { name: "Keep learning", category: "tips", content: "Claude Code evolves rapidly. Follow changelogs, community tips, and best practice repos to stay current.", tags: ["learning", "growth"], attribution: "Community" }
+          ]
+        }
+      ]
+    },
+    {
+      name: "Dev Workflows",
+      category: "workflows",
+      description: "9 major community-developed workflows for structured Claude Code usage.",
+      children: [
+        {
+          name: "Superpowers",
+          category: "workflows",
+          description: "Comprehensive workflow combining specs, agents, and skills for maximum productivity.",
+          content: "A full-featured workflow that leverages Claude Code's agent system for complex, multi-step development tasks. Emphasizes planning and spec-driven development.",
+          tags: ["comprehensive", "specs", "agents"],
+          links: [{ label: "GitHub Repo", url: "https://github.com/NashDotDev/claude-code-superpowers" }]
+        },
+        {
+          name: "Everything Claude Code",
+          category: "workflows",
+          description: "Reference implementation showcasing all Claude Code features working together.",
+          content: "Demonstrates the full range of Claude Code capabilities: commands, skills, hooks, MCP servers, and agent orchestration in a cohesive workflow.",
+          tags: ["reference", "complete", "showcase"],
+          links: [{ label: "GitHub Repo", url: "https://github.com/anthropics/claude-code-everything" }]
+        },
+        {
+          name: "Spec Kit",
+          category: "workflows",
+          description: "Spec-driven development workflow with structured specification templates.",
+          content: "Focused on the specification phase: provides templates and commands for writing detailed specs before implementation. Reduces rework by catching issues early.",
+          tags: ["specs", "templates", "planning"]
+        },
+        {
+          name: "gstack",
+          category: "workflows",
+          description: "Stacked PR workflow for managing complex, interdependent changes.",
+          content: "Manages chains of dependent pull requests. Helps break large features into reviewable, mergeable pieces that build on each other.",
+          tags: ["git", "stacked-prs", "review"]
+        },
+        {
+          name: "Get Shit Done",
+          category: "workflows",
+          description: "Pragmatic, action-oriented workflow focused on rapid iteration.",
+          content: "Minimal ceremony, maximum output. Focuses on getting working code shipped quickly with just enough quality gates.",
+          tags: ["pragmatic", "fast", "iterative"]
+        },
+        {
+          name: "BMAD-METHOD",
+          category: "workflows",
+          description: "Business-Model-Architecture-Development method for structured software projects.",
+          content: "A comprehensive methodology that starts from business requirements and flows through model design, architecture, and implementation. Well-suited for greenfield projects.",
+          tags: ["methodology", "business", "architecture"]
+        },
+        {
+          name: "OpenSpec",
+          category: "workflows",
+          description: "Open specification format for AI-assisted development.",
+          content: "Standardized specification format that AI agents can parse and implement. Promotes interoperability between different AI coding tools.",
+          tags: ["standard", "specification", "interop"]
+        },
+        {
+          name: "Compound Engineering",
+          category: "workflows",
+          description: "Multi-agent engineering approach combining specialized agents for different phases.",
+          content: "Uses multiple specialized agents working in concert: research, planning, implementation, testing, and review agents collaborate on complex projects.",
+          tags: ["multi-agent", "specialized", "collaboration"]
+        },
+        {
+          name: "HumanLayer",
+          category: "workflows",
+          description: "Human-in-the-loop workflow ensuring human oversight at critical decision points.",
+          content: "Emphasizes human review and approval at key checkpoints. Agents work autonomously within defined bounds but escalate decisions to humans.",
+          tags: ["human-in-loop", "oversight", "safety"]
+        }
+      ]
+    },
+    {
+      name: "Hot Features",
+      category: "hot",
+      description: "14 newest and trending Claude Code features — the cutting edge.",
+      children: [
+        { name: "Auto Mode", category: "hot", description: "Automatic permission management — Claude runs with minimal interruptions.", content: "Auto mode pre-approves common tool operations so Claude can work autonomously without constant permission prompts. Configurable per-tool granularity.", tags: ["permissions", "autonomy"] },
+        { name: "Channels", category: "hot", description: "Multi-conversation channels for organizing parallel workstreams.", content: "Run multiple independent conversations in separate channels. Each channel maintains its own context, perfect for parallel tasks.", tags: ["parallel", "organization"] },
+        { name: "Slack Integration", category: "hot", description: "Use Claude Code directly from Slack for team collaboration.", content: "Integrate Claude Code with Slack channels. Trigger commands, share results, and collaborate with your team directly in Slack.", tags: ["slack", "team"] },
+        { name: "Code Review", category: "hot", description: "Automated code review with deep understanding of your codebase.", content: "AI-powered code review that understands your codebase context, conventions, and history. Goes beyond surface-level linting.", tags: ["review", "quality"] },
+        { name: "GitHub Actions", category: "hot", description: "Run Claude Code in CI/CD pipelines via GitHub Actions.", content: "Automate Claude Code tasks in your CI/CD: automated PR reviews, code quality checks, documentation generation, and more.", tags: ["ci-cd", "automation"] },
+        { name: "Chrome Extension", category: "hot", description: "Access Claude Code from the browser without switching to terminal.", content: "Quick access to Claude Code capabilities from any Chrome tab. Great for referencing code while browsing documentation.", tags: ["browser", "convenience"] },
+        { name: "Scheduled Tasks", category: "hot", description: "Cron-based scheduling for recurring Claude Code tasks.", content: "Schedule Claude Code to run tasks on a recurring basis: nightly code reviews, weekly dependency checks, daily report generation.", tags: ["cron", "automation"] },
+        { name: "Voice Dictation", category: "hot", description: "Natural language voice input for hands-free coding.", content: "Speak your instructions naturally. Voice input is transcribed and processed by Claude Code. Great for brainstorming.", tags: ["voice", "accessibility"] },
+        { name: "Simplify & Batch", category: "hot", description: "Batch code simplification across multiple files.", content: "Run /simplify across batches of files for cross-cutting quality improvements. Identifies redundancy and optimization opportunities.", tags: ["batch", "quality"] },
+        { name: "Agent Teams", category: "hot", description: "Configure teams of specialized agents that collaborate.", content: "Define agent teams where each agent has a specific role. Agents collaborate, share findings, and produce coordinated output.", tags: ["multi-agent", "teams"] },
+        { name: "Remote Control", category: "hot", description: "Control Claude Code instances remotely.", content: "Manage and interact with Claude Code sessions from remote locations. Useful for headless servers and remote development.", tags: ["remote", "headless"] },
+        { name: "Git Worktrees", category: "hot", description: "Isolated repository copies for parallel development.", content: "Agents can work in git worktrees — isolated copies of the repo. Changes in one worktree don't affect others or your working copy.", tags: ["git", "isolation"] },
+        { name: "Ralph Wiggum Loop", category: "hot", description: "Self-correcting loop pattern where Claude validates and retries its own work.", content: "A pattern where Claude runs a task, validates the output, and retries if validation fails. Named humorously, but powerful for ensuring quality.", tags: ["self-correction", "validation"] },
+        { name: "Web App (claude.ai/code)", category: "hot", description: "Run Claude Code from the browser at claude.ai/code.", content: "Full Claude Code experience in the browser. No installation needed. Access from any device with a web browser.", tags: ["web", "browser", "no-install"] }
+      ]
+    },
+    {
+      name: "Orchestration",
+      category: "orchestration",
+      description: "The Command → Agent → Skill orchestration pattern for building complex automations.",
+      children: [
+        {
+          name: "Command Layer",
+          category: "orchestration",
+          description: "Commands are the entry point — user-facing prompts that trigger workflows.",
+          content: "Commands (.claude/commands/*.md) are the user-facing triggers. They define the 'what' — the task to perform. They can invoke agents and skills.",
+          bestPractices: [
+            "Design commands as the user-facing API to your automation",
+            "Keep command prompts focused and clear",
+            "Use $ARGUMENTS for parameterization"
+          ],
+          tags: ["entry-point", "user-facing"]
+        },
+        {
+          name: "Agent Layer",
+          category: "orchestration",
+          description: "Agents are the execution engine — they break tasks into steps and use tools.",
+          content: "Agents receive tasks from commands and execute them using tools (Read, Write, Edit, Bash, etc.). They can spawn sub-agents for parallel work.",
+          bestPractices: [
+            "Give agents clear, complete task descriptions",
+            "Use specialized agent types when available",
+            "Launch parallel agents for independent subtasks"
+          ],
+          tags: ["execution", "tools", "parallel"]
+        },
+        {
+          name: "Skill Layer",
+          category: "orchestration",
+          description: "Skills are reusable capabilities — packaged tools that agents invoke for specific jobs.",
+          content: "Skills provide domain-specific capabilities that agents can invoke. They encapsulate best practices and tool configurations for specific tasks.",
+          bestPractices: [
+            "Build skills for repeated patterns",
+            "Skills should be self-contained and composable",
+            "Document skill inputs and outputs"
+          ],
+          tags: ["reusable", "composable", "domain-specific"]
+        },
+        {
+          name: "Orchestration Flow",
+          category: "orchestration",
+          description: "The complete flow: User → Command → Agent(s) → Skill(s) → Result.",
+          content: "The orchestration pattern chains these layers: a user invokes a command, which spawns one or more agents, which use skills to complete their tasks. This creates a powerful, composable automation system.",
+          bestPractices: [
+            "Start simple: one command, one agent, one skill",
+            "Add complexity only when needed",
+            "Test each layer independently before composing"
+          ],
+          tags: ["pattern", "architecture", "composition"]
+        }
+      ]
+    },
+    {
+      name: "Reports",
+      category: "reports",
+      description: "9 in-depth analysis reports on advanced Claude Code topics.",
+      children: [
+        { name: "Agent SDK vs CLI", category: "reports", description: "Comparison of using the Agent SDK versus the CLI for building AI applications.", content: "Detailed analysis of when to use the Claude Agent SDK versus the Claude Code CLI. SDK is better for programmatic integration, CLI for interactive development.", tags: ["comparison", "sdk", "cli"] },
+        { name: "Browser Automation MCP", category: "reports", description: "Setting up and using browser automation via MCP servers.", content: "How to configure Playwright/Puppeteer MCP servers for browser automation. Enables end-to-end testing, web scraping, and interactive browser tasks.", tags: ["browser", "mcp", "automation"] },
+        { name: "Global vs Project Settings", category: "reports", description: "When to use global settings versus project-level settings.", content: "Analysis of settings scoping: global (~/.claude/settings.json) versus project-level (.claude/settings.json). Guidelines for what belongs where.", tags: ["settings", "configuration"] },
+        { name: "Skills in Monorepos", category: "reports", description: "Managing and organizing skills in monorepo environments.", content: "Strategies for skill organization in monorepos: scoping, naming conventions, shared versus package-specific skills.", tags: ["monorepo", "skills", "organization"] },
+        { name: "Agent Memory", category: "reports", description: "Deep dive into the agent memory system and its effective use.", content: "Analysis of the memory system: types of memory, when to save, what to avoid saving, and how to maintain memory hygiene.", tags: ["memory", "persistence"] },
+        { name: "Advanced Tool Use", category: "reports", description: "Advanced patterns for tool usage within Claude Code.", content: "Power-user tool patterns: parallel tool calls, error handling strategies, tool chaining, and performance optimization.", tags: ["tools", "advanced", "performance"] },
+        { name: "Usage & Rate Limits", category: "reports", description: "Understanding and managing Claude Code usage limits.", content: "Breakdown of rate limits, token usage, and strategies for maximizing your quota. Tips for efficient token usage.", tags: ["limits", "tokens", "cost"] },
+        { name: "Agents vs Commands vs Skills", category: "reports", description: "When to use agents, commands, or skills — a decision framework.", content: "Decision framework: Use commands for user-facing prompts, agents for autonomous work, skills for reusable capabilities. Includes a flowchart.", tags: ["comparison", "decision-framework"] },
+        { name: "LLM Degradation", category: "reports", description: "Detecting and handling LLM quality degradation in long sessions.", content: "Analysis of how Claude's output quality can degrade in very long conversations. Strategies: start fresh conversations, use checkpoints, break up work.", tags: ["quality", "long-sessions", "degradation"] }
+      ]
+    }
+  ]
+};
+
+const LAST_UPDATED = "2026-03-30";
+
+// ─── COLOR MAPPING ──────────────────────────────────────────────────────────
+function getColor(category) {
+  const map = {
+    root: 'var(--color-root)',
+    concepts: 'var(--color-concepts)',
+    tips: 'var(--color-tips)',
+    workflows: 'var(--color-workflows)',
+    reports: 'var(--color-reports)',
+    hot: 'var(--color-hot)',
+    orchestration: 'var(--color-orchestration)'
+  };
+  return map[category] || 'var(--color-default)';
+}
+
+function getBgColor(category) {
+  const map = {
+    root: 'var(--color-root-bg)',
+    concepts: 'var(--color-concepts-bg)',
+    tips: 'var(--color-tips-bg)',
+    workflows: 'var(--color-workflows-bg)',
+    reports: 'var(--color-reports-bg)',
+    hot: 'var(--color-hot-bg)',
+    orchestration: 'var(--color-orchestration-bg)'
+  };
+  return map[category] || 'var(--color-default-bg)';
+}
+
+// ─── TREE VISUALIZATION ─────────────────────────────────────────────────────
+const svg = d3.select('#svg');
+const g = svg.append('g');
+const margin = { top: 30, right: 200, bottom: 30, left: 120 };
+
+let root, treemap, i = 0, duration = 400;
+let currentSearch = '';
+
+// Zoom behavior
+const zoom = d3.zoom()
+  .scaleExtent([0.2, 3])
+  .on('zoom', (event) => g.attr('transform', event.transform));
+
+svg.call(zoom);
+
+// Build the tree
+root = d3.hierarchy(KNOWLEDGE_DATA, d => d.children);
+root.x0 = window.innerHeight / 2;
+root.y0 = 0;
+
+// Collapse children initially (except first level)
+function collapseLevel(d, depth) {
+  if (d.children && depth >= 2) {
+    d._children = d.children;
+    d.children = null;
+  }
+  if (d.children) d.children.forEach(c => collapseLevel(c, depth + 1));
+  if (d._children) d._children.forEach(c => collapseLevel(c, depth + 1));
+}
+collapseLevel(root, 0);
+
+update(root);
+fitView();
+
+function update(source) {
+  const width = window.innerWidth;
+  const height = window.innerHeight - 56;
+
+  // Count visible nodes to set height dynamically
+  let nodeCount = 0;
+  root.eachBefore(() => nodeCount++);
+  const dynamicHeight = Math.max(nodeCount * 28, height);
+
+  treemap = d3.tree().size([dynamicHeight, width - margin.left - margin.right - 300]);
+  const treeData = treemap(root);
+  const nodes = treeData.descendants();
+  const links = treeData.descendants().slice(1);
+
+  // Horizontal spacing
+  nodes.forEach(d => { d.y = d.depth * 220; });
+
+  // ─── LINKS ──────────────────────────────────────────────────────────
+  const link = g.selectAll('path.link')
+    .data(links, d => d.id || (d.id = ++i));
+
+  const linkEnter = link.enter().append('path')
+    .attr('class', 'link')
+    .attr('d', () => {
+      const o = { x: source.x0, y: source.y0 };
+      return diagonal(o, o);
+    });
+
+  const linkUpdate = linkEnter.merge(link);
+  linkUpdate.transition().duration(duration)
+    .attr('d', d => diagonal(d, d.parent));
+
+  link.exit().transition().duration(duration)
+    .attr('d', () => {
+      const o = { x: source.x, y: source.y };
+      return diagonal(o, o);
+    }).remove();
+
+  // ─── NODES ──────────────────────────────────────────────────────────
+  const node = g.selectAll('g.node')
+    .data(nodes, d => d.id || (d.id = ++i));
+
+  const nodeEnter = node.enter().append('g')
+    .attr('class', 'node')
+    .attr('transform', () => `translate(${source.y0},${source.x0})`)
+    .on('click', (event, d) => {
+      event.stopPropagation();
+      if (d.children || d._children) {
+        toggle(d);
+        update(d);
+      }
+      showPanel(d.data);
+    })
+    .on('mouseenter', (event, d) => showTooltip(event, d.data))
+    .on('mouseleave', hideTooltip);
+
+  nodeEnter.append('circle')
+    .attr('r', 0)
+    .style('fill', d => d._children ? getColor(d.data.category) : getBgColor(d.data.category))
+    .style('stroke', d => getColor(d.data.category));
+
+  nodeEnter.append('text')
+    .attr('dy', '.35em')
+    .attr('x', d => (d.children || d._children) ? -14 : 14)
+    .attr('text-anchor', d => (d.children || d._children) ? 'end' : 'start')
+    .text(d => d.data.name);
+
+  // Collapse indicator (count badge)
+  nodeEnter.append('text')
+    .attr('class', 'node-count')
+    .attr('dy', '.35em')
+    .attr('x', d => (d.children || d._children) ? -14 : 14)
+    .attr('text-anchor', d => (d.children || d._children) ? 'end' : 'start')
+    .attr('transform', 'translate(0, 16)')
+    .text(d => {
+      const total = countDescendants(d);
+      return total > 0 ? `${total} items` : '';
+    });
+
+  const nodeUpdate = nodeEnter.merge(node);
+
+  nodeUpdate.transition().duration(duration)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+
+  nodeUpdate.select('circle')
+    .attr('r', d => d.depth === 0 ? 10 : d._children ? 7 : 5)
+    .style('fill', d => d._children ? getColor(d.data.category) : getBgColor(d.data.category))
+    .style('stroke', d => getColor(d.data.category));
+
+  nodeUpdate.select('text:not(.node-count)')
+    .attr('x', d => (d.children || d._children) ? -14 : 14)
+    .attr('text-anchor', d => (d.children || d._children) ? 'end' : 'start')
+    .style('font-weight', d => d.depth <= 1 ? '600' : '400')
+    .style('font-size', d => d.depth === 0 ? '16px' : d.depth === 1 ? '14px' : '13px');
+
+  nodeUpdate.select('.node-count')
+    .text(d => {
+      if (!d._children) return '';
+      const total = countDescendants(d);
+      return total > 0 ? `${total} items` : '';
+    });
+
+  const nodeExit = node.exit().transition().duration(duration)
+    .attr('transform', () => `translate(${source.y},${source.x})`)
+    .remove();
+
+  nodeExit.select('circle').attr('r', 0);
+  nodeExit.select('text').style('fill-opacity', 0);
+
+  // Save positions
+  nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+
+  // Apply search highlighting
+  if (currentSearch) applySearch(currentSearch);
+}
+
+function diagonal(s, d) {
+  return `M ${s.y} ${s.x}
+          C ${(s.y + d.y) / 2} ${s.x},
+            ${(s.y + d.y) / 2} ${d.x},
+            ${d.y} ${d.x}`;
+}
+
+function toggle(d) {
+  if (d.children) {
+    d._children = d.children;
+    d.children = null;
+  } else {
+    d.children = d._children;
+    d._children = null;
+  }
+}
+
+function countDescendants(d) {
+  let count = 0;
+  function walk(node) {
+    const children = node.children || node._children;
+    if (children) {
+      count += children.length;
+      children.forEach(walk);
+    }
+  }
+  walk(d);
+  return count;
+}
+
+function expandAll(d) {
+  if (d._children) {
+    d.children = d._children;
+    d._children = null;
+  }
+  if (d.children) d.children.forEach(expandAll);
+}
+
+function collapseAll(d) {
+  if (d.children && d.depth >= 1) {
+    d._children = d.children;
+    d.children = null;
+  }
+  if (d.children) d.children.forEach(collapseAll);
+  if (d._children) d._children.forEach(collapseAll);
+}
+
+function fitView() {
+  const bounds = g.node().getBBox();
+  const fullWidth = window.innerWidth;
+  const fullHeight = window.innerHeight - 56;
+  const bWidth = bounds.width;
+  const bHeight = bounds.height;
+  const scale = Math.min(0.9 * fullWidth / bWidth, 0.9 * fullHeight / bHeight, 1.5);
+  const tx = fullWidth / 2 - scale * (bounds.x + bWidth / 2);
+  const ty = fullHeight / 2 - scale * (bounds.y + bHeight / 2);
+
+  svg.transition().duration(500)
+    .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+// ─── PANEL ────────────────────────────────────────────────────────────────────
+const panel = document.getElementById('panel');
+const panelBody = document.getElementById('panel-body');
+
+function showPanel(data) {
+  let html = '';
+
+  // Category badge
+  html += `<div class="panel-category" style="background:${getCSSVar(getBgColor(data.category))};color:${getCSSVar(getColor(data.category))}">${data.category}</div>`;
+
+  // Title
+  html += `<div class="panel-title">${data.name}</div>`;
+
+  // Description
+  if (data.description) {
+    html += `<div class="panel-subtitle">${data.description}</div>`;
+  }
+
+  // Content
+  if (data.content) {
+    html += `<div class="panel-section"><div class="panel-section-title">Overview</div><div class="panel-content"><p>${data.content}</p></div></div>`;
+  }
+
+  // Best Practices
+  if (data.bestPractices && data.bestPractices.length) {
+    html += `<div class="panel-section"><div class="panel-section-title">Best Practices</div><div class="panel-content"><ul>${data.bestPractices.map(bp => `<li>${bp}</li>`).join('')}</ul></div></div>`;
+  }
+
+  // Examples
+  if (data.examples && data.examples.length) {
+    html += `<div class="panel-section"><div class="panel-section-title">Examples</div><div class="panel-content"><ul>${data.examples.map(ex => `<li><code>${escapeHtml(ex)}</code></li>`).join('')}</ul></div></div>`;
+  }
+
+  // Attribution
+  if (data.attribution) {
+    html += `<div class="panel-section"><div class="panel-section-title">Source</div><div class="panel-content"><p>${data.attribution}</p></div></div>`;
+  }
+
+  // Tags
+  if (data.tags && data.tags.length) {
+    html += `<div class="panel-section"><div class="panel-section-title">Tags</div><div class="panel-tags">${data.tags.map(t => `<span class="panel-tag">${t}</span>`).join('')}</div></div>`;
+  }
+
+  // Links
+  if (data.links && data.links.length) {
+    html += `<div class="panel-section"><div class="panel-section-title">Links</div><div class="panel-content">${data.links.map(l => `<a class="panel-link" href="${l.url}" target="_blank" rel="noopener">&#x2197; ${l.label}</a>`).join('')}</div></div>`;
+  }
+
+  // Children list (if has collapsed children)
+  if (data.children && data.children.length) {
+    html += `<div class="panel-section"><div class="panel-section-title">Contains</div><div class="panel-content"><ul>${data.children.map(c => `<li><strong>${c.name}</strong>${c.description ? ' — ' + c.description : ''}</li>`).join('')}</ul></div></div>`;
+  }
+
+  panelBody.innerHTML = html;
+  panel.classList.add('open');
+}
+
+function closePanel() {
+  panel.classList.remove('open');
+}
+
+document.getElementById('panel-close').addEventListener('click', closePanel);
+
+// ─── TOOLTIP ──────────────────────────────────────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+
+function showTooltip(event, data) {
+  tooltip.querySelector('.tooltip-title').textContent = data.name;
+  tooltip.querySelector('.tooltip-desc').textContent = data.description || '';
+  const hasChildren = data.children && data.children.length;
+  tooltip.querySelector('.tooltip-hint').textContent = hasChildren ? 'Click to expand' : 'Click for details';
+  tooltip.style.left = (event.pageX + 16) + 'px';
+  tooltip.style.top = (event.pageY - 10) + 'px';
+  tooltip.classList.add('visible');
+}
+
+function hideTooltip() {
+  tooltip.classList.remove('visible');
+}
+
+// ─── SEARCH ───────────────────────────────────────────────────────────────────
+const searchInput = document.getElementById('search');
+
+searchInput.addEventListener('input', (e) => {
+  currentSearch = e.target.value.toLowerCase().trim();
+  if (!currentSearch) {
+    clearSearch();
+    return;
+  }
+  // Expand all to search through everything
+  expandAll(root);
+  update(root);
+  setTimeout(() => applySearch(currentSearch), duration + 50);
+});
+
+function applySearch(query) {
+  const allNodes = g.selectAll('g.node');
+  const allLinks = g.selectAll('path.link');
+
+  allNodes.classed('search-match', false).classed('search-dim', false);
+  allLinks.classed('search-dim', false);
+
+  if (!query) return;
+
+  allNodes.each(function(d) {
+    const data = d.data;
+    const text = [data.name, data.description, data.content, ...(data.tags || []), ...(data.bestPractices || []), data.attribution || '']
+      .join(' ').toLowerCase();
+    const matches = text.includes(query);
+    d3.select(this).classed('search-match', matches).classed('search-dim', !matches);
+  });
+
+  allLinks.classed('search-dim', true);
+}
+
+function clearSearch() {
+  currentSearch = '';
+  g.selectAll('g.node').classed('search-match', false).classed('search-dim', false);
+  g.selectAll('path.link').classed('search-dim', false);
+}
+
+// ─── CONTROLS ─────────────────────────────────────────────────────────────────
+document.getElementById('btn-expand-all').addEventListener('click', () => {
+  expandAll(root);
+  update(root);
+  setTimeout(fitView, duration + 100);
+});
+
+document.getElementById('btn-collapse-all').addEventListener('click', () => {
+  collapseAll(root);
+  update(root);
+  setTimeout(fitView, duration + 100);
+});
+
+document.getElementById('btn-fit').addEventListener('click', fitView);
+
+// ─── KEYBOARD SHORTCUTS ──────────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closePanel();
+    searchInput.blur();
+    if (currentSearch) {
+      searchInput.value = '';
+      clearSearch();
+    }
+  }
+  if (e.key === '/' && document.activeElement !== searchInput) {
+    e.preventDefault();
+    searchInput.focus();
+  }
+  if (e.key === 'f' && document.activeElement !== searchInput) {
+    e.preventDefault();
+    fitView();
+  }
+});
+
+// Close panel on background click
+svg.on('click', () => closePanel());
+
+// ─── RESPONSIVE ───────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  update(root);
+  fitView();
+});
+
+// ─── LAST UPDATED ─────────────────────────────────────────────────────────────
+document.getElementById('last-updated').textContent = `Updated: ${LAST_UPDATED}`;
+
+// ─── HELPER ───────────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function getCSSVar(varStr) {
+  // For inline styles, we need to resolve CSS custom properties
+  // This is a workaround for use in JS-generated HTML
+  return varStr;
+}
+</script>
+</body>
+</html>
